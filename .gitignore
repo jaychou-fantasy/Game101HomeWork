@@ -1,0 +1,9 @@
+# Local build output
+**/.mac-build/
+**/build/
+**/.cache/
+**/compile_commands.json
+
+# Local editor and macOS files
+.vscode/
+**/.DS_Store
