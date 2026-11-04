@@ -7,8 +7,11 @@
 #include <cmath>
 #include <vector>
 #include "rasterizer.hpp"
+#include "Triangle.hpp"
 #include <opencv2/opencv.hpp>
 #include <math.h>
+
+constexpr bool SSAA = true;
 
 
 rst::pos_buf_id rst::rasterizer::load_positions(const std::vector<Eigen::Vector3f> &positions)
@@ -41,7 +44,7 @@ auto to_vec4(const Eigen::Vector3f& v3, float w = 1.0f)
 }
 
 
-static bool insideTriangle(int x, int y, const Vector3f* _v)//point at the first element of array<vector3f,3>
+static bool insideTriangle(float x, float y, const Vector3f* _v)//point at the first element of array<vector3f,3>
 {   
     // TODO : Implement this function to check if the point (x, y) is inside the triangle represented by _v[0], _v[1], _v[2]
     const auto& A = _v[0];
@@ -140,26 +143,62 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     {
         for(int y = min_y;y<=max_y;y++)
         {
-            if(!insideTriangle(x,y,t.v))
+            if(SSAA)
             {
-                continue;
-            }
-            auto[alpha,beta,gamma] = computeBarycentric2D(x,y,t.v);//the ptr to array's first element itself just represent the whole array 
-            float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());//矫正系数
-            float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-            z_interpolated *= w_reciprocal;//same process as color interpolate
+                int cnt =0;
+                for(float i=0.25;i<1;i+=0.5)
+                {
+                    for(float j=0.25;j<1;j+=0.5)
+                    {
+                        if(!insideTriangle(x+i, y+j, t.v))
+                        {
+                            continue;
+                        }
+                        cnt++;
+                    }
+                }
+                if(cnt == 0)
+                {
+                    continue;
+                }
+                auto[alpha,beta,gamma] = computeBarycentric2D(x,y,t.v);//the ptr to array's first element itself just represent the whole array 
+                float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());//矫正系数
+                float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                z_interpolated *= w_reciprocal;//same process as color interpolate
 
-            Eigen::Vector3f interpolate_p;
-            interpolate_p << x,y,z_interpolated;
-            auto idx = get_index(x,y);
-            //if z_interpolate > z_buffer,不渲染，小于等于则渲染后更新z_buffer，这样可以顺带覆盖之前的渲染结果
-            if(z_interpolated <= depth_buf[idx] || depth_buf[idx] == 0.0f)
-            {
-                set_pixel(interpolate_p,t.getColor());
-                depth_buf[idx] = z_interpolated;
+                Eigen::Vector3f interpolate_p;
+                interpolate_p << x,y,z_interpolated;
+                auto idx = get_index(x,y);
+                //if z_interpolate > z_buffer,不渲染，小于等于则渲染后更新z_buffer，这样可以顺带覆盖之前的渲染结果
+                if(z_interpolated <= depth_buf[idx] || depth_buf[idx] == 0.0f)
+                {
+                    set_pixel(interpolate_p,cnt/4.0f * t.getColor());//SSAA for actually ,in this exmaple same as MSAA(becuase triangle is in same color)
+                    depth_buf[idx] = z_interpolated;
+                }
             }
-            else{
-                continue;
+            else {
+                if(!insideTriangle(x,y,t.v))
+                {
+                    continue;
+                }
+                auto[alpha,beta,gamma] = computeBarycentric2D(x,y,t.v);//the ptr to array's first element itself just represent the whole array 
+                float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());//矫正系数
+                float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                z_interpolated *= w_reciprocal;//same process as color interpolate
+
+                Eigen::Vector3f interpolate_p;
+                interpolate_p << x,y,z_interpolated;
+                auto idx = get_index(x,y);
+                //if z_interpolate > z_buffer,不渲染，小于等于则渲染后更新z_buffer，这样可以顺带覆盖之前的渲染结果
+                if(z_interpolated <= depth_buf[idx] || depth_buf[idx] == 0.0f)
+                {
+                    set_pixel(interpolate_p,t.getColor());
+                    depth_buf[idx] = z_interpolated;
+                }
+                /* or you can 
+                *  std::fill(depth_buf.begin(),depth_buf.end(),std::numeric_limits<float>::infinity());
+                *  then you can skip "depth_buf[idx] ==0.0f"
+                */
             }
         }
     }
