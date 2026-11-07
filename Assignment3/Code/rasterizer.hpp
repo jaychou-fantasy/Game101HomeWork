@@ -68,7 +68,7 @@ namespace rst
 
         void set_model(const Eigen::Matrix4f& m);
         void set_view(const Eigen::Matrix4f& v);
-        void set_projection(const Eigen::Matrix4f& p);
+        void set_perspective(const Eigen::Matrix4f& p);
 
         void set_texture(Texture tex) { texture = tex; }
 
@@ -94,7 +94,7 @@ namespace rst
     private:
         Eigen::Matrix4f model;
         Eigen::Matrix4f view;
-        Eigen::Matrix4f projection;
+        Eigen::Matrix4f perspective;
 
         int normal_id = -1;
 

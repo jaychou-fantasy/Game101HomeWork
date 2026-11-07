@@ -63,9 +63,8 @@ static bool insideTriangle(float x, float y, const Vector3f* _v)//point at the f
     float z1 = AB.cross(AP).z();
     float z2 = BC.cross(BP).z();
     float z3 = CA.cross(CP).z();
-    float res = z1*z2*z3;
 
-    return res >= 0 ?  true : false;//or return res
+    return (z1>=0 && z2 >=0 && z3 >= 0) || (z1<0 && z2 <0 && z3<0);
     //if this point is on the edge,assume it inside the triangle
 }
 
@@ -86,7 +85,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
     float f1 = (50 - 0.1) / 2.0;
     float f2 = (50 + 0.1) / 2.0;
 
-    Eigen::Matrix4f mvp = projection * view * model;
+    Eigen::Matrix4f mvp = perspective * view * model;
     for (auto& i : ind)
     {
         Triangle t;
@@ -223,9 +222,9 @@ void rst::rasterizer::set_view(const Eigen::Matrix4f& v)
     view = v;
 }
 
-void rst::rasterizer::set_projection(const Eigen::Matrix4f& p)
+void rst::rasterizer::set_perspective(const Eigen::Matrix4f& p)
 {
-    projection = p;
+    perspective = p;
 }
 
 void rst::rasterizer::clear(rst::Buffers buff)

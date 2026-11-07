@@ -1,4 +1,4 @@
-Spot
+·Spot
 ====
 contact: Keenan Crane (keenan@cs.caltech.edu)
 

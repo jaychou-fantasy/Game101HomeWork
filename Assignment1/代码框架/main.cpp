@@ -40,14 +40,14 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     return model;
 }
 
-Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,float zNear, float zFar)
+Eigen::Matrix4f get_perspective_matrix(float eye_fov, float aspect_ratio,float zNear, float zFar)
 {
     // Students will implement this function
 
-    Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f perspective = Eigen::Matrix4f::Identity();
 
     // TODO: Implement this function
-    // Create the projection matrix for the given parameters.
+    // Create the perspective matrix for the given parameters.
     // Then return it.
     float fov_to_rad = eye_fov / 180.0f * MY_PI;
 
@@ -74,8 +74,8 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,float zN
     MorthoGraphic = Mortho_scale * Mortho_translate;
 
 
-    Eigen::Matrix4f Mprojection_to_ortho;
-    Mprojection_to_ortho << near,0,0,0,
+    Eigen::Matrix4f Mperspective_to_ortho;
+    Mperspective_to_ortho << near,0,0,0,
                             0,near,0,0,
                             0,0,(near+far),-near*far,
                             0,0,1,0;
@@ -86,9 +86,9 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,float zN
     //     0, 0, 0, 1; 
     // Mpersp2ortho = Mpersp2ortho *Mt;
 
-    projection =  MorthoGraphic * Mprojection_to_ortho;
+    perspective =  MorthoGraphic * Mperspective_to_ortho;
 
-    return projection;
+    return perspective;
 }
 
 //option work : rotate around any n-axis about any angles
@@ -171,7 +171,7 @@ int main(int argc, const char** argv)
         r.set_model(get_rotation(rot_axis,angle));
 
         r.set_view(get_view_matrix(eye_pos));
-        r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
+        r.set_perspective(get_perspective_matrix(45, 1, 0.1, 50));
 
         r.draw(pos_id, ind_id, rst::Primitive::Triangle);
         cv::Mat image(700, 700, CV_32FC3, r.frame_buffer().data());
@@ -189,7 +189,7 @@ int main(int argc, const char** argv)
         r.set_model(get_rotation(rot_axis,angle));
 
         r.set_view(get_view_matrix(eye_pos));
-        r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
+        r.set_perspective(get_perspective_matrix(45, 1, 0.1, 50));
 
         r.draw(pos_id, ind_id, rst::Primitive::Triangle);
 
