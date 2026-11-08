@@ -63,5 +63,5 @@ inline void UpdateProgress(float progress)
             std::cout << " ";
     }
     std::cout << "] " << int(progress * 100.0) << " %\r";
-    std::cout.flush();
+    std::cout.flush();//clear the ostream
 }

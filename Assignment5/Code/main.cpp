@@ -4,6 +4,9 @@
 #include "Light.hpp"
 #include "Renderer.hpp"
 
+
+//cammand :  sips -s format png binary.ppm --out Assignment5/output.png
+
 // In the main function of the program, we create the scene (create objects and lights)
 // as well as set the options for the render (image width and height, maximum recursion
 // depth, field-of-view, etc.). We then call the render function().

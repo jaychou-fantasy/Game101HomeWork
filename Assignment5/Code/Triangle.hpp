@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Object.hpp"
+#include "Vector.hpp"
 
 #include <cstring>
 
@@ -11,8 +12,42 @@ bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1, const Vector3f
     // that's specified bt v0, v1 and v2 intersects with the ray (whose
     // origin is *orig* and direction is *dir*)
     // Also don't forget to update tnear, u and v.
-    return false;
+    Vector3f O = orig, D = dir , P0 = v0 ,P1 = v1 , P2 = v2;
+    Vector3f E1 = P1-P0 , E2 = P2-P0;
+    Vector3f S = O-P0 , S1 = crossProduct(D, E2) , S2 = crossProduct(S, E1);
+
+    float  Divided_Item = dotProduct(S1, E1);
+
+    tnear = dotProduct(S2, E2) / Divided_Item;
+    u = dotProduct(S1, S) / Divided_Item;
+    v = dotProduct(S2, D) / Divided_Item;
+    return tnear > 0 && u > 0 && v >0 && (1-u-v) > 0;
+
+
+    // const Vector3f e1 = v1 - v0;
+    // const Vector3f e2 = v2 - v0;
+    // const Vector3f p = crossProduct(dir, e2);
+    // const float det = dotProduct(e1, p);
+    // if (std::abs(det) < 1e-6f) return false;
+
+    // const float invDet = 1.0f / det;
+    // const Vector3f s = orig - v0;
+    // const float hitU = dotProduct(s, p) * invDet;
+    // if (hitU < 0.0f || hitU > 1.0f) return false;
+
+    // const Vector3f q = crossProduct(s, e1);
+    // const float hitV = dotProduct(dir, q) * invDet;
+    // if (hitV < 0.0f || hitU + hitV > 1.0f) return false;
+
+    // const float t = dotProduct(e2, q) * invDet;
+    // if (t <= 1e-6f) return false;
+
+    // tnear = t;
+    // u = hitU;
+    // v = hitV;
+    // return true;
 }
+
 
 class MeshTriangle : public Object
 {

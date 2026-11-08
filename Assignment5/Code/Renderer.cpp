@@ -26,11 +26,14 @@ Vector3f reflect(const Vector3f &I, const Vector3f &N)
 //
 // If the ray is inside, you need to invert the refractive indices and negate the normal N
 // [/comment]
+
+//ior : index of refraction
 Vector3f refract(const Vector3f &I, const Vector3f &N, const float &ior)
 {
     float cosi = clamp(-1, 1, dotProduct(I, N));
-    float etai = 1, etat = ior;
+    float etai = 1, etat = ior;//eta : a symbol like beta.  eta incident,eta transmitted
     Vector3f n = N;
+    //if cosi > 0 , which means the ray is exiting the object(the ray is inside), we should negate normal N
     if (cosi < 0) { cosi = -cosi; } else { std::swap(etai, etat); n= -N; }
     float eta = etai / etat;
     float k = 1 - eta * eta * (1 - cosi * cosi);
@@ -91,7 +94,7 @@ std::optional<hit_payload> trace(
         float tNearK = kInfinity;
         uint32_t indexK;
         Vector2f uvK;
-        if (object->intersect(orig, dir, tNearK, indexK, uvK) && tNearK < tNear)
+        if (object->intersect(orig, dir, tNearK, indexK, uvK) && tNearK < tNear)// call sub_object's function to judge whether interect with the ray(orig,dir)
         {
             payload.emplace();
             payload->hit_obj = object.get();
@@ -127,15 +130,15 @@ Vector3f castRay(
 {
     if (depth > scene.maxDepth) {
         return Vector3f(0.0,0.0,0.0);
-    }
+    }//the exit conidtion in this. recursive function
 
-    Vector3f hitColor = scene.backgroundColor;
-    if (auto payload = trace(orig, dir, scene.get_objects()); payload)
+    Vector3f hitColor = scene.backgroundColor;//if the ray didn't hit anything , just it would return the background color
+    if (auto payload = trace(orig, dir, scene.get_objects()); payload)//if初始化initiliz. == (payload=); if(payload.hasvalue()){...}
     {
         Vector3f hitPoint = orig + dir * payload->tNear;
         Vector3f N; // normal
-        Vector2f st; // st coordinates
-        payload->hit_obj->getSurfaceProperties(hitPoint, dir, payload->index, payload->uv, N, st);
+        Vector2f st; // st coordinates --sampled texture
+        payload->hit_obj->getSurfaceProperties(hitPoint, dir, payload->index, payload->uv, N, st);//actually set surface properties
         switch (payload->hit_obj->materialType) {
             case REFLECTION_AND_REFRACTION:
             {
@@ -144,9 +147,11 @@ Vector3f castRay(
                 Vector3f reflectionRayOrig = (dotProduct(reflectionDirection, N) < 0) ?
                                              hitPoint - N * scene.epsilon :
                                              hitPoint + N * scene.epsilon;
+                                            //cos < 0 ---- inside
                 Vector3f refractionRayOrig = (dotProduct(refractionDirection, N) < 0) ?
                                              hitPoint - N * scene.epsilon :
                                              hitPoint + N * scene.epsilon;
+                //epsilon to prevent Self-Intersection ---- new ray may intersect with the surface again
                 Vector3f reflectionColor = castRay(reflectionRayOrig, reflectionDirection, scene, depth + 1);
                 Vector3f refractionColor = castRay(refractionRayOrig, refractionDirection, scene, depth + 1);
                 float kr = fresnel(dir, N, payload->hit_obj->ior);
@@ -158,12 +163,13 @@ Vector3f castRay(
                 float kr = fresnel(dir, N, payload->hit_obj->ior);
                 Vector3f reflectionDirection = reflect(dir, N);
                 Vector3f reflectionRayOrig = (dotProduct(reflectionDirection, N) < 0) ?
-                                             hitPoint + N * scene.epsilon :
-                                             hitPoint - N * scene.epsilon;
+                                             hitPoint - N * scene.epsilon :
+                                             hitPoint + N * scene.epsilon;
+                                             //@fixme::i think -+should be in line with former case ---  fixed
                 hitColor = castRay(reflectionRayOrig, reflectionDirection, scene, depth + 1) * kr;
                 break;
             }
-            default:
+            default://diffuse/glossy
             {
                 // [comment]
                 // We use the Phong illumation model int the default case. The phong model
@@ -172,7 +178,7 @@ Vector3f castRay(
                 Vector3f lightAmt = 0, specularColor = 0;
                 Vector3f shadowPointOrig = (dotProduct(dir, N) < 0) ?
                                            hitPoint + N * scene.epsilon :
-                                           hitPoint - N * scene.epsilon;
+                                           hitPoint - N * scene.epsilon;//this dir is the light direction (not reflected/refracted)
                 // [comment]
                 // Loop over all lights in the scene and sum their contribution up
                 // We also apply the lambert cosine law
@@ -183,9 +189,10 @@ Vector3f castRay(
                     float lightDistance2 = dotProduct(lightDir, lightDir);
                     lightDir = normalize(lightDir);
                     float LdotN = std::max(0.f, dotProduct(lightDir, N));
+
                     // is the point in shadow, and is the nearest occluding object closer to the object than the light itself?
                     auto shadow_res = trace(shadowPointOrig, lightDir, scene.get_objects());
-                    bool inShadow = shadow_res && (shadow_res->tNear * shadow_res->tNear < lightDistance2);
+                    bool inShadow = shadow_res && (shadow_res->tNear * shadow_res->tNear < lightDistance2);//if hit sth. && square(tnear) < square(lightdistance)
 
                     lightAmt += inShadow ? 0 : light->intensity * LdotN;
                     Vector3f reflectionDirection = reflect(-lightDir, N);
@@ -193,6 +200,7 @@ Vector3f castRay(
                     specularColor += powf(std::max(0.f, -dotProduct(reflectionDirection, dir)),
                         payload->hit_obj->specularExponent) * light->intensity;
                 }
+                //这里就是，castray可能是迭代好几次才得到这个hitpoint（需要检测在不在阴影里），然后在射出一个光线（真'light source到hitpoint），如果中间有东西挡着，且离光源更近，则hitpoint在阴影里
 
                 hitColor = lightAmt * payload->hit_obj->evalDiffuseColor(st) * payload->hit_obj->Kd + specularColor * payload->hit_obj->Ks;
                 break;
@@ -225,12 +233,19 @@ void Renderer::Render(const Scene& scene)
             // generate primary ray direction
             float x;
             float y;
-            // TODO: Find the x and y positions of the current pixel to get the direction
+            // TODO: Find the x and y positions of the current pixel（中心the center） to get the direction
             // vector that passes through it.
             // Also, don't forget to multiply both of them with the variable *scale*, and
-            // x (horizontal) variable with the *imageAspectRatio*            
-
-            Vector3f dir = Vector3f(x, y, -1); // Don't forget to normalize this direction!
+            // x (horizontal) variable with the *imageAspectRatio*           
+            
+            //the screen center is the origin dot
+            // +0.5 -- the center of pixel
+            x = ((2.0f * (i+0.5) / scene.width) - 1.0f) //this line [0,1]
+                * (scale * imageAspectRatio);//*1.0f. the z-asix coordinate //suppose the screen is at z=-1
+                //scale * aspectratio --- width scale
+            y = (1.0f - 2.0f * (j+0.5) / scene.height)
+                *scale;
+            Vector3f dir = normalize(Vector3f(x, y, -1)); // Don't forget to normalize this direction!
             framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
         }
         UpdateProgress(j / (float)scene.height);
@@ -241,9 +256,9 @@ void Renderer::Render(const Scene& scene)
     (void)fprintf(fp, "P6\n%d %d\n255\n", scene.width, scene.height);
     for (auto i = 0; i < scene.height * scene.width; ++i) {
         static unsigned char color[3];
-        color[0] = (char)(255 * clamp(0, 1, framebuffer[i].x));
-        color[1] = (char)(255 * clamp(0, 1, framebuffer[i].y));
-        color[2] = (char)(255 * clamp(0, 1, framebuffer[i].z));
+        color[0] = static_cast<unsigned char>(255 * clamp(0, 1, framebuffer[i].x));
+        color[1] = static_cast<unsigned char>(255 * clamp(0, 1, framebuffer[i].y));
+        color[2] = static_cast<unsigned char>(255 * clamp(0, 1, framebuffer[i].z));
         fwrite(color, 1, 3, fp);
     }
     fclose(fp);    
