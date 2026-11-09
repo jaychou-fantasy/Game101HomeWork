@@ -71,6 +71,11 @@ inline Vector3f normalize(const Vector3f &v)
     return v;
 }
 
+inline float norm(const Vector3f& a ,Vector3f& b)
+{
+    return std::sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z));
+}
+
 inline float dotProduct(const Vector3f &a, const Vector3f &b)
 { return a.x * b.x + a.y * b.y + a.z * b.z; }
 

@@ -6,37 +6,49 @@
 #include "OBJ_Loader.hpp"
 #include "Object.hpp"
 #include "Triangle.hpp"
+#include "Vector.hpp"
+#include "global.hpp"
 #include <cassert>
 #include <array>
+#include <complex>
 
 bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1,
                           const Vector3f& v2, const Vector3f& orig,
                           const Vector3f& dir, float& tnear, float& u, float& v)
 {
-    Vector3f edge1 = v1 - v0;
-    Vector3f edge2 = v2 - v0;
-    Vector3f pvec = crossProduct(dir, edge2);
-    float det = dotProduct(edge1, pvec);
-    if (det == 0 || det < 0)
-        return false;
+    // Vector3f edge1 = v1 - v0;
+    // Vector3f edge2 = v2 - v0;
+    // Vector3f pvec = crossProduct(dir, edge2);
+    // float det = dotProduct(edge1, pvec);
+    // if (det == 0 || det < 0)
+    //     return false;
 
-    Vector3f tvec = orig - v0;
-    u = dotProduct(tvec, pvec);
-    if (u < 0 || u > det)
-        return false;
+    // Vector3f tvec = orig - v0;
+    // u = dotProduct(tvec, pvec);
+    // if (u < 0 || u > det)
+    //     return false;
 
-    Vector3f qvec = crossProduct(tvec, edge1);
-    v = dotProduct(dir, qvec);
-    if (v < 0 || u + v > det)
-        return false;
+    // Vector3f qvec = crossProduct(tvec, edge1);
+    // v = dotProduct(dir, qvec);
+    // if (v < 0 || u + v > det)
+    //     return false;
 
-    float invDet = 1 / det;
+    // float invDet = 1 / det;
 
-    tnear = dotProduct(edge2, qvec) * invDet;
-    u *= invDet;
-    v *= invDet;
+    // tnear = dotProduct(edge2, qvec) * invDet;
+    // u *= invDet;
+    // v *= invDet;
+    //return true;
+    Vector3f O = orig, D = dir , P0 = v0 ,P1 = v1 , P2 = v2;
+    Vector3f E1 = P1-P0 , E2 = P2-P0;
+    Vector3f S = O-P0 , S1 = crossProduct(D, E2) , S2 = crossProduct(S, E1);
 
-    return true;
+    float  Divided_Item = dotProduct(S1, E1);
+    tnear = dotProduct(S2, E2) / Divided_Item;
+    u = dotProduct(S1, S) / Divided_Item;
+    v = dotProduct(S2, D) / Divided_Item;
+
+    return tnear > 0 && u > 0 && v >0 && (1-u-v) > 0;
 }
 
 class Triangle : public Object
@@ -71,6 +83,8 @@ public:
     Vector3f evalDiffuseColor(const Vector2f&) const override;
     Bounds3 getBounds() override;
 };
+
+
 
 class MeshTriangle : public Object
 {
@@ -211,29 +225,48 @@ inline Bounds3 Triangle::getBounds() { return Union(Bounds3(v0, v1), v2); }
 inline Intersection Triangle::getIntersection(Ray ray)
 {
     Intersection inter;
-
     if (dotProduct(ray.direction, normal) > 0)
-        return inter;
-    double u, v, t_tmp = 0;
-    Vector3f pvec = crossProduct(ray.direction, e2);
-    double det = dotProduct(e1, pvec);
-    if (fabs(det) < EPSILON)
-        return inter;
+         return inter;//ignore the light from back
+    // double u, v, t_tmp = 0;
+    // Vector3f pvec = crossProduct(ray.direction, e2);
+    // double det = dotProduct(e1, pvec);
+    // if (fabs(det) < EPSILON)
+    //     return inter;
 
-    double det_inv = 1. / det;
-    Vector3f tvec = ray.origin - v0;
-    u = dotProduct(tvec, pvec) * det_inv;
-    if (u < 0 || u > 1)
+    // double det_inv = 1. / det;
+    // Vector3f tvec = ray.origin - v0;
+    // u = dotProduct(tvec, pvec) * det_inv;
+    // if (u < 0 || u > 1)
+    //     return inter;
+    // Vector3f qvec = crossProduct(tvec, e1);
+    // v = dotProduct(ray.direction, qvec) * det_inv;
+    // if (v < 0 || u + v > 1)
+    //     return inter;
+    // t_tmp = dotProduct(e2, qvec) * det_inv;
+    Vector3f O = ray.origin, D = ray.direction , P0 = v0 ,P1 = v1 , P2 = v2;
+    Vector3f E1 = P1-P0 , E2 = P2-P0;
+    Vector3f S = O-P0 , S1 = crossProduct(D, E2) , S2 = crossProduct(S, E1);
+
+    float  Divided_Item = dotProduct(S1, E1);
+    if(fabs(Divided_Item) < EPSILON)
+    {
         return inter;
-    Vector3f qvec = crossProduct(tvec, e1);
-    v = dotProduct(ray.direction, qvec) * det_inv;
-    if (v < 0 || u + v > 1)
+    }
+
+    float tnear = dotProduct(S2, E2) / Divided_Item;
+    float u = dotProduct(S1, S) / Divided_Item;
+    float v = dotProduct(S2, D) / Divided_Item;
+    if(u <0 || u>1 || v <0 || v>1 || u+v >1) 
+    {
         return inter;
-    t_tmp = dotProduct(e2, qvec) * det_inv;
-
-    // TODO find ray triangle intersection
-
-
+    }
+   
+    inter.coords = ray(tnear);
+    inter.normal = normal;
+    inter.distance = tnear;
+    inter.happened = tnear > 0 && u > 0 && v >0 && (1-u-v) > 0;
+    inter.m = m;
+    inter.obj = this;
 
 
     return inter;
