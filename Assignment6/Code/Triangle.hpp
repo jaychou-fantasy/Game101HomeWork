@@ -10,6 +10,7 @@
 #include "global.hpp"
 #include <cassert>
 #include <array>
+#include <chrono>
 #include <complex>
 
 bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1,
@@ -89,7 +90,7 @@ public:
 class MeshTriangle : public Object
 {
 public:
-    MeshTriangle(const std::string& filename)
+    MeshTriangle(const std::string& filename,BVHAccel::SplitMethod splitmethod)
     {
         objl::Loader loader;
         loader.LoadFile(filename);
@@ -138,7 +139,10 @@ public:
         for (auto& tri : triangles)
             ptrs.push_back(&tri);
 
-        bvh = new BVHAccel(ptrs);
+        auto buildStart = std::chrono::steady_clock::now();
+        bvh = new BVHAccel(ptrs,1,splitmethod);
+        bvhBuildMilliseconds = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - buildStart).count();
     }
 
     bool intersect(const Ray& ray) { return true; }
@@ -210,6 +214,7 @@ public:
     std::vector<Triangle> triangles;
 
     BVHAccel* bvh;
+    double bvhBuildMilliseconds = 0.0;
 
     Material* m;
 };
