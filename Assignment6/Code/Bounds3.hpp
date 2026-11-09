@@ -90,6 +90,7 @@ class Bounds3
 
 
 
+//check if the ray hit the Bounidng box
 inline bool Bounds3::IntersectP(const Ray& ray, const Vector3f& invDir,
                                 const std::array<int, 3>& dirIsPostive) const
 {

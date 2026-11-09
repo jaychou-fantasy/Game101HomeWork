@@ -133,6 +133,7 @@ public:
 
         bounding_box = Bounds3(min_vert, max_vert);
 
+        //here create triangle's bounding box and bvh of small triangle
         std::vector<Object*> ptrs;
         for (auto& tri : triangles)
             ptrs.push_back(&tri);
@@ -222,6 +223,7 @@ inline bool Triangle::intersect(const Ray& ray, float& tnear,
 
 inline Bounds3 Triangle::getBounds() { return Union(Bounds3(v0, v1), v2); }
 
+//get the intersection between ray and triangle
 inline Intersection Triangle::getIntersection(Ray ray)
 {
     Intersection inter;

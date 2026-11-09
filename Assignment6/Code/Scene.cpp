@@ -7,6 +7,7 @@
 
 void Scene::buildBVH() {
     printf(" - Generating BVH...\n\n");
+    //generate the bvh accelerate instance
     this->bvh = new BVHAccel(objects, 1, BVHAccel::SplitMethod::NAIVE);
 }
 
@@ -55,6 +56,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     if (depth > this->maxDepth) {
         return Vector3f(0.0,0.0,0.0);
     }
+    //call intersect
     Intersection intersection = Scene::intersect(ray);
     Material *m = intersection.m;
     Object *hitObject = intersection.obj;
@@ -62,6 +64,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
 //    float tnear = kInfinity;
     Vector2f uv;
     uint32_t index = 0;
+    //calculate intersection' color
     if(intersection.happened) {
 
         Vector3f hitPoint = intersection.coords;
