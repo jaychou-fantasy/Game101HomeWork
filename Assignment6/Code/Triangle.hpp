@@ -275,7 +275,6 @@ inline Intersection Triangle::getIntersection(Ray ray)
     inter.m = m;
     inter.obj = this;
 
-
     return inter;
 }
 

@@ -33,8 +33,8 @@ public:
     { return Vector3f(v.x * r, v.y * r, v.z * r); }
     friend std::ostream & operator << (std::ostream &os, const Vector3f &v)
     { return os << v.x << ", " << v.y << ", " << v.z; }
-    double       operator[](int index) const;
-    double&      operator[](int index);
+    float        operator[](int index) const;
+    float&       operator[](int index);
 
 
     static Vector3f Min(const Vector3f &p1, const Vector3f &p2) {
@@ -47,8 +47,16 @@ public:
                        std::max(p1.z, p2.z));
     }
 };
-inline double Vector3f::operator[](int index) const {
-    return (&x)[index];
+inline float Vector3f::operator[](int index) const {
+    if (index == 0) return x;
+    if (index == 1) return y;
+    return z;
+}
+
+inline float& Vector3f::operator[](int index) {
+    if (index == 0) return x;
+    if (index == 1) return y;
+    return z;
 }
 
 
