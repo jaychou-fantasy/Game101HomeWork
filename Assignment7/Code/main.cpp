@@ -4,7 +4,12 @@
 #include "Sphere.hpp"
 #include "Vector.hpp"
 #include "global.hpp"
+#include <algorithm>
 #include <chrono>
+#include <exception>
+#include <iostream>
+#include <string>
+#include <thread>
 
 // In the main function of the program, we create the scene (create objects and
 // lights) as well as set the options for the render (image width and height,
@@ -12,9 +17,40 @@
 // function().
 int main(int argc, char** argv)
 {
+    int spp = 256;
+    const char* sppArg = nullptr;
+    if (argc == 2) {
+        sppArg = argv[1];
+    } else if (argc == 3 && std::string(argv[1]) == "--spp") {
+        sppArg = argv[2];
+    } else if (argc != 1) {
+        std::cerr << "Usage: " << argv[0] << " [spp] or "
+                  << argv[0] << " --spp <spp>\n";
+        return 1;
+    }
+
+    if (sppArg != nullptr) {
+        const std::string value(sppArg);
+        std::size_t parsed = 0;
+        try {
+            spp = std::stoi(value, &parsed);
+        } catch (const std::exception&) {
+            std::cerr << "SPP must be a positive integer.\n";
+            return 1;
+        }
+        if (parsed != value.size() || spp <= 0) {
+            std::cerr << "SPP must be a positive integer.\n";
+            return 1;
+        }
+    }
 
     // Change the definition here to change resolution
     Scene scene(784, 784);
+
+    const unsigned threadCount = std::max(
+        1u,
+        std::min(std::thread::hardware_concurrency(),
+                 static_cast<unsigned>(scene.height)));
 
     Material* red = new Material(DIFFUSE, Vector3f(0.0f));
     red->Kd = Vector3f(0.63f, 0.065f, 0.05f);
@@ -43,8 +79,11 @@ int main(int argc, char** argv)
 
     Renderer r;
 
+    std::cout << "Render worker threads: " << threadCount << '\n';
+    std::cout << "Including main thread: " << threadCount + 1 << '\n';
+
     auto start = std::chrono::system_clock::now();
-    r.Render(scene);
+    r.Render(scene, spp, threadCount);
     auto stop = std::chrono::system_clock::now();
 
     std::cout << "Render complete: \n";
@@ -53,4 +92,4 @@ int main(int argc, char** argv)
     std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
     return 0;
-}
+}//magick binary.ppm output.png
