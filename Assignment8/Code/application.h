@@ -23,7 +23,7 @@ struct AppConfig {
   AppConfig() {
     // Rope config variables
     mass = 1;
-    ks = 100;
+    ks = 0.5;
 
     // Environment variables
     gravity = Vector2D(0, -1);

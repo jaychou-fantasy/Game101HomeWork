@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
 
+# Allow this directory to be configured directly as well as from Assignment8.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  project(RopeSim)
+  find_package(OpenGL REQUIRED)
+  find_package(Threads REQUIRED)
+  find_package(Freetype REQUIRED)
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../CGL" "${CMAKE_CURRENT_BINARY_DIR}/CGL")
+  set(CGL_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/../CGL/include")
+endif()
+
 # Application source
 set(APPLICATION_SOURCE
     rope.cpp
@@ -49,8 +59,8 @@ if(APPLE)
                 "-Wno-deprecated-declarations -Wno-c++11-extensions")
 endif(APPLE)
 
-# Put executable in build directory root
-set(EXECUTABLE_OUTPUT_PATH ..)
+# Keep the executable in the configured build directory.
+set_target_properties(ropesim PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 # Install to project root
 install(TARGETS ropesim DESTINATION ${RopeSim_SOURCE_DIR})

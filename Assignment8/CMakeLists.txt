@@ -158,7 +158,7 @@ endif(BUILD_LIBCGL)
 #-------------------------------------------------------------------------------
 # Add subdirectories
 #-------------------------------------------------------------------------------
-add_subdirectory(src)
+add_subdirectory(Code)
 
 # Install settings
 set(CMAKE_INSTALL_PREFIX "${RopeSim_SOURCE_DIR}/")
