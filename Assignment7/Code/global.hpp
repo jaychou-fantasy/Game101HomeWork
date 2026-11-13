@@ -30,10 +30,12 @@ inline  bool solveQuadratic(const float &a, const float &b, const float &c, floa
 
 inline float get_random_float()
 {
-    std::random_device dev;
-    std::mt19937 rng(dev());
-    std::uniform_real_distribution<float> dist(0.f, 1.f); // distribution in range [1, 6]
-
+    //std::random_device dev
+    //thread_local : means when thread A first call "get_random_float",it created dev,mt19937,dist
+    //and after that,only call dist(rng);
+    //thread_local : create a local varible only for belonged thread
+    thread_local std::mt19937 rng(std::random_device{}());
+    thread_local std::uniform_real_distribution<float> dist(0.f, 1.f);
     return dist(rng);
 }
 

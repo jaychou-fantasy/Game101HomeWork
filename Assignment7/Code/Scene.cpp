@@ -6,6 +6,7 @@
 #include "Material.hpp"
 #include "Object.hpp"
 #include "global.hpp"
+#include <cmath>
 #include <cstdint>
 
 
@@ -64,10 +65,7 @@ bool Scene::trace(
 // Implementation of Path Tracing
 Vector3f Scene::castRay(const Ray& ray,int depth) const
 {
-    // TO DO Implement Path Tracing Algorithm here
-    //use russian roulette to constrain max depth.()
-    //gobal illuminate
-
+    constexpr float rayOriginOffset = 0.001f;
     //get ray intersection (the first position to be rendered)
     Intersection intersection = Scene::intersect(ray);
     Material* m = intersection.m;
@@ -89,27 +87,30 @@ Vector3f Scene::castRay(const Ray& ray,int depth) const
         Vector2f st;//texture coordinate
         hitObject->getSurfaceProperties(hitPoint, ray.direction ,index, uv,  N,  st);
 
-        //as no reflective or refractive material in this model,there's no need for us to calculate the Reflection&Refraction case in the function 
-        //and we don't use Blinn-Phong model , so we don't calculate shadow ray
-        //case DIFFUSE:
         //Direct Light
         float pdf = 0;
         Intersection light_inter;//a pos in light source
         sampleLight(light_inter,pdf);//get pdf(intersection)
         Vector3f w_i = ray.direction;//ray in
         Vector3f w_o = (light_inter.coords - hitPoint);//ray out
-        Vector3f w_o_n = w_o.normalized();
-        //generate a ray from hitpoint to light sampled point
-        Ray p2light = Ray(hitPoint + N*EPSILON,w_o_n);
-        //this ray intersect with another object to calculate indirect light (if hit something)
-        Intersection p2light_inter = Scene::intersect(p2light);
-        if(p2light_inter.distance > (w_o.norm() - EPSILON))//-epsilon to avoid float error ,, and it includes == case
-        //no object blocked.
+        float distance2 = dotProduct(w_o, w_o);
+        if (pdf > 0.0f && distance2 > 0.0f)
         {
-            //calculat direct illumination
-            Vector3f f_r = m->eval(w_i, w_o_n, N);
-            float distance2 = dotProduct(w_o, w_o);
-            L_dir = light_inter.emit * f_r * dotProduct(N, w_o_n) * dotProduct(light_inter.normal, -w_o_n) / distance2 / pdf;
+            float distance = std::sqrt(distance2);
+            Vector3f w_o_n = w_o / distance;
+            float cosSurface = dotProduct(N, w_o_n);
+            float cosLight = dotProduct(light_inter.normal, -w_o_n);
+            if (cosSurface > 0.0f && cosLight > 0.0f)
+            {
+                Ray p2light(hitPoint + N * rayOriginOffset, w_o_n);
+                Intersection firstHit = Scene::intersect(p2light);
+                // This scene has one emitter. Its first hit means the sample is visible.
+                if (firstHit.happened && firstHit.m && firstHit.m->hasEmission())
+                {
+                    Vector3f f_r = m->eval(w_i, w_o_n, N);
+                    L_dir = light_inter.emit * f_r * cosSurface * cosLight / distance2 / pdf;
+                }
+            }
         }
 
         //indirect light
@@ -119,21 +120,25 @@ Vector3f Scene::castRay(const Ray& ray,int depth) const
         {
             return L_dir;
         }
-        //as a diffuse material ,our sample function actually is a random sample (same propablity)
-        Vector3f random_wo = m->sample(w_i, N).normalized();
+        // A microfacet sample can be invalid when its reflected ray leaves the surface.
+        Vector3f random_wo = normalize(m->sample(w_i, N));
+        float pdf_wo = m->pdf(w_i, random_wo, N);
+        if(pdf_wo <= 0.0f)
+            return L_dir;
         //if sth. blocked on the way, this inter.coord return the blocked position(new texel to be rendered)
-        Ray indir_ray(hitPoint + N*EPSILON,random_wo);
-        Intersection indir_ray_inter = Scene::intersect(indir_ray);
+        Ray indir_ray(hitPoint + N*rayOriginOffset,random_wo);
+        Intersection next_inter = Scene::intersect(indir_ray);
         //if hit the sth., calculate Q point
-        if(indir_ray_inter.happened)
+        if(next_inter.happened && next_inter.m)
         {
-            float pdf_o = m->pdf(w_i,random_wo, N);
+            // Direct lighting from the emitter is already estimated above.
+            if(next_inter.m->hasEmission())
+                return L_dir;
             Vector3f indir_f_r = m->eval(w_i , random_wo , N);
-            L_indir = castRay(indir_ray, depth+1) * indir_f_r * dotProduct(random_wo, N) / pdf_o / RussianRoulette;
+            L_indir = castRay(indir_ray, depth+1) * indir_f_r * dotProduct(random_wo, N) / pdf_wo / RussianRoulette;
         }
 
         return L_dir + L_indir;
     }
     return Vector3f();//no intersection
-    //@fixme：：目前没有把hitpoint按光线在内部外部进行 + epsilon（这个模型全是diffuse，按理说+epsilon即可）
 }

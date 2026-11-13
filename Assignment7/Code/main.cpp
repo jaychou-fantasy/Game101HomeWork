@@ -1,3 +1,4 @@
+#include "Material.hpp"
 #include "Renderer.hpp"
 #include "Scene.hpp"
 #include "Triangle.hpp"
@@ -6,6 +7,7 @@
 #include "global.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <string>
@@ -17,7 +19,7 @@
 // function().
 int main(int argc, char** argv)
 {
-    int spp = 256;
+    int spp = 128;
     const char* sppArg = nullptr;
     if (argc == 2) {
         sppArg = argv[1];
@@ -45,7 +47,7 @@ int main(int argc, char** argv)
     }
 
     // Change the definition here to change resolution
-    Scene scene(784, 784);
+    Scene scene(1280, 960);
 
     const unsigned threadCount = std::max(
         1u,
@@ -56,12 +58,13 @@ int main(int argc, char** argv)
     red->Kd = Vector3f(0.63f, 0.065f, 0.05f);
     Material* green = new Material(DIFFUSE, Vector3f(0.0f));
     green->Kd = Vector3f(0.14f, 0.45f, 0.091f);
-    Material* white = new Material(DIFFUSE, Vector3f(0.0f));
+    Material* white = new Material(MICROFAFET, Vector3f(0.0f));
     white->Kd = Vector3f(0.725f, 0.71f, 0.68f);
+    white->Ks = white->Kd;
     Material* light = new Material(DIFFUSE, (8.0f * Vector3f(0.747f+0.058f, 0.747f+0.258f, 0.747f) + 15.6f * Vector3f(0.740f+0.287f,0.740f+0.160f,0.740f) + 18.4f *Vector3f(0.737f+0.642f,0.737f+0.159f,0.737f)));
     light->Kd = Vector3f(0.65f);
 
-    MeshTriangle floor("Assignment7/Code/models/cornellbox/floor.obj", white);
+    MeshTriangle floor("Assignment7/Code/models/cornellbox/floor.obj", green);
     MeshTriangle shortbox("Assignment7/Code/models/cornellbox/shortbox.obj", white);
     MeshTriangle tallbox("Assignment7/Code/models/cornellbox/tallbox.obj", white);
     MeshTriangle left("Assignment7/Code/models/cornellbox/left.obj", red);
@@ -91,5 +94,11 @@ int main(int argc, char** argv)
     std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
     std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
+    if (std::system("magick binary.ppm output.png") != 0) {
+        std::cerr << "Failed to convert binary.ppm to output.png. Check that ImageMagick is installed.\n";
+        return 1;
+    }
+    std::cout << "Saved binary.ppm and output.png\n";
+
     return 0;
-}//magick binary.ppm output.png
+}

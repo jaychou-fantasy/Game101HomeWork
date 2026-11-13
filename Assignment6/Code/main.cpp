@@ -33,7 +33,7 @@ int main(int argc, char** argv)
                                 ? "NAIVE BVH" : "SAH BVH";
         std::cout << "\n=== " << label << " ===\n";
 
-        Scene scene(1280, 960);
+        Scene scene(512, 512);
         MeshTriangle bunny("Assignment6/Code/models/bunny/bunny.obj", splitMethod);
         scene.Add(&bunny);
         scene.Add(std::make_unique<Light>(Vector3f(-20, 70, 20), 1));

@@ -6,11 +6,50 @@
 #define RAYTRACING_MATERIAL_H
 
 #include "Vector.hpp"
+#include "global.hpp"
+#include <cmath>
 
-enum MaterialType { DIFFUSE};
+enum MaterialType {
+    DIFFUSE,
+    MICROFAFET
+};
 
 class Material{
 private:
+    //for Microfacet material
+    float ggxAlpha() const
+    {
+        const float r = clamp(0.0f, 1.0f,  roughness);
+        //actually a = r * r is just a usual parameter mapping . You can change the formula as you like.
+        return std::max(0.02f , r*r);
+        //avoid tiny roughness causing numerical problems
+        //so that microfacet != specular material
+    }
+
+    float cal_ggxD(float NdotH) const
+    //how many tiny specular planes face to the wanted direction(H)
+    {
+        if(NdotH <= 0.0f)
+            return 0.0f;
+        //only take the planes with the same orientation as main plane into consideration
+        const float a = ggxAlpha(), a2 = a * a;
+
+        const float d = NdotH * NdotH * (a2 - 1.0f) + 1.0f;
+        return a2 / (M_PI * d * d);
+    }
+
+    float smithG1(float NdotH) const
+    //can this tiny specular planes be seen in given direction(H)? --  it can be covered by the other convex planes nearby.
+    //G1 gives a propertional of the planes can be seen.
+    {
+        if(NdotH <= 0.0f)
+            return 0.0f;
+        const float a = ggxAlpha(), a2 = a * a;
+        return 2.0f * NdotH /
+                    (NdotH + std::sqrt(a2 + (1.0f -a2) * NdotH * NdotH));
+    }
+
+
 
     // Compute reflection direction
     Vector3f reflect(const Vector3f &I, const Vector3f &N) const
@@ -71,6 +110,8 @@ private:
         // kt = 1 - kr;
     }
 
+    //a is in the coordinate of(N == z-axis)
+    //this function is to change a into the coordinate of real world(N is might not z-axis)
     Vector3f toWorld(const Vector3f &a, const Vector3f &N){
         Vector3f B, C;
         if (std::fabs(N.x) > std::fabs(N.y)){
@@ -93,6 +134,8 @@ public:
     Vector3f Kd, Ks;
     float specularExponent;
     //Texture tex;
+
+    float roughness = 0.5f;//0->specular , 1->very rough,
 
     inline Material(MaterialType t=DIFFUSE, Vector3f e=Vector3f(0,0,0));
     inline MaterialType getType();
@@ -135,12 +178,38 @@ Vector3f Material::sample(const Vector3f &wi, const Vector3f &N){
         {
             // uniform sample on the hemisphere
             float x_1 = get_random_float(), x_2 = get_random_float();
-            float z = std::fabs(1.0f - 2.0f * x_1);
+            float z = std::fabs(1.0f - 2.0f * x_1);//same as 1-x_1,but it maps on [-1,1],then 2*x_1
             float r = std::sqrt(1.0f - z * z), phi = 2 * M_PI * x_2;
             Vector3f localRay(r*std::cos(phi), r*std::sin(phi), z);
             return toWorld(localRay, N);
             
             break;
+        }
+        case MICROFAFET:
+        {
+            const Vector3f V = -wi;//wi orint towards the plane, but in formula wi should face to the light source
+            if(dotProduct(V, N) <= 0.0f)
+                return Vector3f();
+            float u1 = get_random_float() , u2  = get_random_float();
+            float a = ggxAlpha(), a2 = a*a;
+            float phi = 2*M_PI * u1;//included angle(H) in horizon plane
+            //how far it deviate from N
+            //and cosTheta is actually N dot H (the z length)
+            //theta is the vertical angle of H
+            float cosTheta = std::sqrt((1.0f - u2) / (1.0f + (a2-1.0f) * u2));//ggx sample formula
+            float sinTheta = std::sqrt(std::max(0.0f , 1.0f - cosTheta*cosTheta));//the sqrt(x*x+y*y) length
+
+            //got H
+            Vector3f H = toWorld(
+                Vector3f(sinTheta * std::cos(phi), sinTheta * std::sin(phi),cosTheta)
+                , N);
+
+            //calculate wo
+            float VdotH = dotProduct(V, H);
+            if(VdotH < 0.0f)
+                return Vector3f();
+            Vector3f W_O = 2.0f * VdotH * H - V;//L
+            return normalize(W_O);
         }
     }
 }
@@ -156,14 +225,31 @@ float Material::pdf(const Vector3f &wi, const Vector3f &wo, const Vector3f &N){
                 return 0.0f;
             break;
         }
+        case MICROFAFET:
+        {
+            float NdotV = dotProduct(-wi, N);
+            float NdotL = dotProduct(wo, N);
+            if(NdotV <= 0.0f || NdotL <= 0.0f)
+                return 0.0f;
+            Vector3f H = normalize(wo + (-wi));//L + V
+
+            float NdotH = dotProduct(N, H);
+            float VdotH = dotProduct(-wi, H);
+            if(NdotH <= 0.0f || VdotH <= 0.0f)
+                return 0.0f;
+
+            //probablity density of (H) = ggxD(NoH)*NoH , change to  pdf of (w_o)= p(H)/4*HoV;
+            return (cal_ggxD(NdotH) * NdotH) / (4.0f * VdotH);
+        }
     }
 }
 
+//BRDF
 Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &N){
     switch(m_type){
         case DIFFUSE:
         {
-            // calculate the contribution of diffuse   model
+            // calculate the contribution of diffuse model
             float cosalpha = dotProduct(N, wo);
             if (cosalpha > 0.0f) {
                 Vector3f diffuse = Kd / M_PI;
@@ -172,6 +258,30 @@ Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &
             else
                 return Vector3f(0.0f);
             break;
+        }
+        case MICROFAFET:
+        {
+            float NdotV = dotProduct(-wi, N);
+            float NdotL = dotProduct(wo, N);
+            if(NdotV <= 0.0f || NdotL <= 0.0f)
+                return 0.0f;
+            Vector3f H = normalize(wo + (-wi));//L + V
+
+            float NdotH = dotProduct(N, H);
+            float VdotH = dotProduct(-wi, H);
+            if (NdotH <= 0.0f || VdotH <= 0.0f) return Vector3f();
+
+            //cal BRDF:returned propertional
+            //for metal
+            float x = 1.0f - clamp(0.0f, 1.0f, VdotH);//x = 1-cosTheta
+            float x2 = x*x , x5 = x2*x2*x;
+
+            Vector3f F = Ks + (Vector3f(1.0f)-Ks)*x5;
+            //for glass,plastic,air...（non-metal）
+            //Vector3f F = fresnel(wi, H,its ior, Ks)
+            float G = smithG1(NdotV) * smithG1(NdotL);
+            float D = cal_ggxD(NdotH);
+            return F*G*D / (4.0f * NdotV * NdotL);
         }
     }
 }
